@@ -12,8 +12,8 @@
 | W1 | 2026.10 | SQL 基础：SELECT / WHERE / ORDER BY / LIMIT | ✅ |
 | W2 | 2026.10 | 聚合：GROUP BY / HAVING / 日期与字符串函数 | ✅ |
 | W3 | 2026.10 | 多表 JOIN：INNER / LEFT / 自连接 / 反连接 | ✅ |
-| W4 | 2026.10 | 子查询 / EXISTS / UNION | 🚧 |
-| W5–W6 | 2026.11 | 窗口函数 / CTE | ⬜ |
+| W4 | 2026.10 | 子查询 / EXISTS / UNION | ✅ |
+| W5–W6 | 2026.11 | 窗口函数 / CTE | 🚧 |
 | W7 | 2026.11 | 索引与执行计划（EXPLAIN） | ⬜ |
 | W8–W9 | 2026.12 | 综合实战 + 阶段小测 | ⬜ |
 
@@ -23,6 +23,7 @@
 | --- | --- | --- |
 | `Day01.sql` | 基础查询 10 题 + 聚合 9 题 | ✅ 已完成 |
 | `Day02.sql` | 多表 JOIN：三表连接、连接聚合、反连接、自连接 | ✅ 已完成 |
+| `Day03.sql` | 子查询、EXISTS / NOT EXISTS、UNION | ✅ 已完成 |
 
 ## 仓库结构
 
@@ -30,6 +31,7 @@
 learn-sql/
 ├── Day01.sql   # W1–W2：基础查询、聚合与分组
 ├── Day02.sql   # W3：多表 JOIN、反连接、自连接
+├── Day03.sql   # W4：子查询、EXISTS、UNION
 └── README.md
 ```
 
