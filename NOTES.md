@@ -122,6 +122,18 @@ ORDER BY cnt DESC;
 | `LENGTH` / `CHAR_LENGTH` | 字节数 / 字符数（中文用后者） |
 | `SUBSTRING(s, pos, len)` | 截取 |
 
+**条件分支**
+
+```sql
+CASE
+    WHEN 条件1 THEN 值1
+    WHEN 条件2 THEN 值2
+    ELSE 默认值
+END AS 别名
+```
+
+常用于分档：`CASE WHEN total >= 100 THEN '高价值' ELSE '普通' END`。
+
 **数值**
 
 `ROUND(x, n)` 四舍五入 ｜ `CEIL` 向上取整 ｜ `FLOOR` 向下取整 ｜ `ABS` 绝对值
@@ -311,6 +323,53 @@ LAG(amount, 1, 0)        -- 没有上一行时用 0 代替 NULL
 - 窗口函数不能写在 `WHERE` 里，要套子查询。
 - `LAG` / `LEAD` 必须配 `ORDER BY`，否则「上一行」没有定义。
 - 同一时间有多条记录时，加第二排序键（如 `payment_id`）保证顺序稳定。
+
+---
+
+## 8.5 CTE（WITH）
+
+把查询拆成有名字的几步，从上往下读。
+
+```sql
+WITH 名字 AS (查询),
+     名字2 AS (查询，可引用名字)
+SELECT ... FROM 名字2;
+```
+
+等价于派生表，但嵌套两层以上时可读性高得多。
+
+**经典：每组取最新一条**
+
+```sql
+WITH ranked AS (
+    SELECT *,
+           ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY payment_date DESC) AS rn
+    FROM payment
+)
+SELECT * FROM ranked WHERE rn = 1;
+```
+
+**先聚合，再窗口（环比）**
+
+```sql
+WITH daily AS (
+    SELECT DATE(payment_date) AS d, SUM(amount) AS income
+    FROM payment
+    WHERE payment_date >= '2005-07-01' AND payment_date < '2005-08-01'
+    GROUP BY d
+),
+prev AS (
+    SELECT d, income, LAG(income) OVER (ORDER BY d) AS pre
+    FROM daily
+)
+SELECT d, income, income - pre AS growth FROM prev ORDER BY d;
+```
+
+**要点**
+
+- 聚合和窗口不能在同一层混着做：先 `GROUP BY` 压成一行一天，再对它 `LAG`。
+- 后面可以引用前面的 CTE，像搭积木。
+- `LAG` 必须配 `ORDER BY`，否则「上一行」没有定义。
 
 ---
 
