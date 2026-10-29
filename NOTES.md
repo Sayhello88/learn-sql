@@ -1,7 +1,7 @@
 # SQL 学习手册
 
 > 配套仓库：`learn-sql` ｜ 数据源：sakila（MySQL 8.0）
-> 更新至 W4，W5 窗口函数进行中。
+> 更新至 W7：窗口函数、CTE、索引与 EXPLAIN。
 
 ---
 
@@ -265,7 +265,7 @@ SELECT first_name FROM customer;
 
 ---
 
-## 8. 窗口函数（W5，进行中）
+## 8. 窗口函数（W5–W6）
 
 ```sql
 函数() OVER (
@@ -373,7 +373,212 @@ SELECT d, income, income - pre AS growth FROM prev ORDER BY d;
 
 ---
 
-## 9. 常见错误清单（自查用）
+## 9. 索引与 EXPLAIN（W7）
+
+> 一句话：**索引用来看目录，EXPLAIN 用来看 MySQL 准备怎么查。**
+
+### 9.1 先看表上已经有什么索引
+
+不要一上来就 `CREATE INDEX`，sakila 自带了一些索引：
+
+```sql
+SHOW INDEX FROM film;
+SHOW INDEX FROM actor;
+SHOW INDEX FROM payment;
+```
+
+重点看这几列：
+
+| 列 | 含义 |
+| --- | --- |
+| `Key_name` | 索引名 |
+| `Column_name` | 索引包含哪一列 |
+| `Seq_in_index` | 在联合索引里排第几 |
+| `Non_unique` | `0` 表示唯一索引 |
+
+**sakila 里已经有的索引**：
+
+- `film.idx_title (title)`
+- `actor.idx_actor_last_name (last_name)`
+- `payment.idx_fk_customer_id (customer_id)`
+- `payment.idx_fk_staff_id (staff_id)`
+
+所以 `CREATE INDEX film_title ON film(title)` 和 `CREATE INDEX idx_actor_last ON actor(last_name)` 都是**重复索引**，不会让查询更快，只会多占空间、拖慢写入。学习时可以先 `DROP INDEX` 掉自己建的重复索引。
+
+### 9.2 InnoDB 和 B+ 树，先用直觉理解
+
+**InnoDB** 是 MySQL 8 默认的存储引擎。你可以先记三件事：
+
+- 数据按行存在磁盘上
+- 支持事务和崩溃恢复
+- 使用 B+ 树组织索引
+
+**B+ 树索引**像一本按关键字排好序的目录：
+
+```text
+             [M]
+           /     \
+       [D, H]     [R, W]
+       /  |  \     /  |  \
+      A  E  K    N  T  Z
+```
+
+它的关键能力是：**知道关键字顺序，所以能快速定位和连续扫描一段范围**。因此：
+
+- `title = 'A'`：能定位
+- `title LIKE 'A%'`：能定位到 A 开头的一段
+- `title LIKE '%A'`：不知道开头是什么，只能整表扫
+- `YEAR(payment_date) = 2005`：要先对每一行算函数，索引顺序用不上
+
+### 9.3 聚簇索引、二级索引、回表
+
+InnoDB 的主键索引叫**聚簇索引**：叶子节点直接放整行数据。
+
+```text
+主键索引 film_id -> [film_id, title, length, rating, ...整行]
+```
+
+普通索引叫**二级索引**，叶子节点放的是“索引列 + 主键值”：
+
+```text
+idx_title (title) -> [title, film_id]
+```
+
+如果查询要的列不在二级索引里，就要拿 `film_id` 回主键索引再查一次，这叫**回表**：
+
+```text
+idx_title 找到 film_id  ->  主键索引找到整行
+```
+
+如果查询只需要索引里已有的列，就不用回表，叫**覆盖索引**，`EXPLAIN` 的 `Extra` 会出现：
+
+```text
+Using index
+```
+
+例子：
+
+```sql
+-- title 在 idx_title 里，通常可以覆盖
+EXPLAIN SELECT title FROM film WHERE title LIKE 'A%';
+
+-- 还要 description、rating 等列，通常要回表
+EXPLAIN SELECT * FROM film WHERE title LIKE 'A%';
+```
+
+### 9.4 看懂 EXPLAIN 的关键列
+
+```sql
+EXPLAIN SELECT title FROM film WHERE title LIKE 'A%';
+```
+
+| 列 | 看什么 |
+| --- | --- |
+| `type` | 访问方式，最重要 |
+| `possible_keys` | 理论上能用的索引 |
+| `key` | 实际选中的索引 |
+| `key_len` | 用了索引的多少字节 |
+| `rows` | **估算**要扫多少行，不是精确值 |
+| `filtered` | 扫描后预计还剩多少百分比 |
+| `Extra` | 覆盖索引、排序、临时表等额外信息 |
+
+`type` 从好到差大致是：
+
+```text
+const  >  eq_ref  >  ref  >  range  >  index  >  ALL
+```
+
+- `const`：主键/唯一索引等值查到一行
+- `ref`：普通索引等值匹配，可能多行
+- `range`：索引范围扫描，例如 `BETWEEN`、`>`、`LIKE 'A%'`
+- `index`：扫描整个索引，不是扫描整表，但仍可能很慢
+- `ALL`：全表扫描
+
+`Extra` 常见值：
+
+| 值 | 含义 |
+| --- | --- |
+| `Using index` | 覆盖索引，不用回表 |
+| `Using where` | 服务层还要过滤 |
+| `Using filesort` | 需要额外排序 |
+| `Using temporary` | 用了临时表，常见于复杂 `GROUP BY` |
+
+### 9.5 索引什么时候用得上
+
+**① 前缀匹配可以，前导通配符不行**
+
+```sql
+EXPLAIN SELECT title FROM film WHERE title LIKE 'A%';  -- range
+EXPLAIN SELECT title FROM film WHERE title LIKE '%A';  -- ALL
+```
+
+sakila 里 `A%` 有 46 部电影，适合演示范围扫描。
+
+**② 列上套函数，普通索引容易失效**
+
+```sql
+-- 不推荐：对 payment_date 套了 YEAR()
+EXPLAIN SELECT * FROM payment WHERE YEAR(payment_date) = 2005;
+
+-- 推荐：把范围写在列上
+EXPLAIN SELECT * FROM payment
+WHERE payment_date >= '2005-01-01'
+  AND payment_date <  '2006-01-01';
+```
+
+第一条通常是 `ALL`，第二条能用 `payment_date` 索引做 `range`。
+
+**③ 联合索引遵守最左前缀**
+
+```sql
+CREATE INDEX idx_customer_date ON payment(customer_id, payment_date);
+```
+
+它像电话簿先按姓、再按名排序：
+
+| 查询 | 能否利用 `idx_customer_date` |
+| --- | --- |
+| `WHERE customer_id = 1` | 能 |
+| `WHERE customer_id = 1 AND payment_date > '2005-06-01'` | 能 |
+| `WHERE payment_date > '2005-06-01'` | 不能单独利用这个联合索引 |
+
+但注意：如果表上同时有单独的 `idx_pay_date (payment_date)`，第三条会改用 `idx_pay_date`，`type` 仍然是 `range`。要验证“最左前缀”，要先排除其他索引的干扰。
+
+**④ ORDER BY 最好跟索引顺序一致**
+
+```sql
+-- 过滤用 title 索引，但排序按 release_year，通常出现 Using filesort
+EXPLAIN SELECT title FROM film
+WHERE title LIKE 'A%'
+ORDER BY release_year;
+
+-- 过滤和排序都按 title，索引本身有序，通常没有 filesort
+EXPLAIN SELECT title FROM film
+WHERE title LIKE 'A%'
+ORDER BY title;
+```
+
+`Using filesort` 不一定真的写磁盘，也可能在内存里排序；它只表示 MySQL 需要额外做一次排序。
+
+### 9.6 索引不是越多越好
+
+- 每个索引都要占空间
+- `INSERT` / `UPDATE` / `DELETE` 都要维护索引，写入会变慢
+- 区分度低的列（例如只有几个值）单独建索引，效果通常不好
+- 小表全表扫描有时比走索引更快，优化器可能主动选择 `ALL`
+- 不要重复建索引，先用 `SHOW INDEX` 看现有索引
+
+**W7 的坑**
+
+- `film.title` 已经有 `idx_title`，`actor.last_name` 已经有 `idx_actor_last_name`，不要重复建。
+- 第 2 题建了 `idx_pay_date` 后，第 3 题第三条查询会被它接走，不一定能看到 `ALL`。
+- `rows` 是优化器估算值，不是 `COUNT(*)`；sakila 数据量小，不要用耗时判断索引好坏。
+- `LIKE 'SON%'` 虽然是 `range`，但 sakila 里没有姓以 `SON` 开头的演员，可能返回 0 行；演示前缀索引用 `A%` 更直观。
+- 查询 `SELECT *` 容易触发回表；只取需要的列，才更容易用上覆盖索引。
+
+---
+
+## 10. 常见错误清单（自查用）
 
 | # | 错误 | 正确做法 |
 | --- | --- | --- |
@@ -387,10 +592,14 @@ SELECT d, income, income - pre AS growth FROM prev ORDER BY d;
 | 8 | `payment_date = '2005-06'` | `>= '2005-06-01' AND < '2005-07-01'` |
 | 9 | 派生表没别名 | `FROM (...) AS t` |
 | 10 | 忘写 `ON` | 检查每个 `JOIN` |
+| 11 | 重复建同列索引 | 先 `SHOW INDEX`，复用已有索引 |
+| 12 | `WHERE YEAR(date_col) = 2005` | 改成日期范围，让索引可用 |
+| 13 | `LIKE '%关键字'` | 尽量用前缀匹配，或考虑全文索引 |
+| 14 | 把 `EXPLAIN.rows` 当精确行数 | 它是估算值，以实际 `COUNT(*)` 为准 |
 
 ---
 
-## 10. sakila 速查
+## 11. sakila 速查
 
 | 表 | 关键字段 |
 | --- | --- |

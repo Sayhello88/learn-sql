@@ -13,9 +13,9 @@
 | W2 | 2026.10 | 聚合：GROUP BY / HAVING / 日期与字符串函数 | ✅ |
 | W3 | 2026.10 | 多表 JOIN：INNER / LEFT / 自连接 / 反连接 | ✅ |
 | W4 | 2026.10 | 子查询 / EXISTS / UNION | ✅ |
-| W5–W6 | 2026.11 | 窗口函数 / CTE | 🚧 |
-| W7 | 2026.11 | 索引与执行计划（EXPLAIN） | ⬜ |
-| W8–W9 | 2026.12 | 综合实战 + 阶段小测 | ⬜ |
+| W5–W6 | 2026.11 | 窗口函数 / CTE / CASE WHEN | ✅ |
+| W7 | 2026.11 | 索引与执行计划（EXPLAIN） | ✅ 已完成 |
+| W8–W9 | 2026.12 | 综合实战 + 阶段小测 | 🚧 下一阶段 |
 
 ## 进度
 
@@ -24,6 +24,9 @@
 | `Day01.sql` | 基础查询 10 题 + 聚合 9 题 | ✅ 已完成 |
 | `Day02.sql` | 多表 JOIN：三表连接、连接聚合、反连接、自连接 | ✅ 已完成 |
 | `Day03.sql` | 子查询、EXISTS / NOT EXISTS、UNION | ✅ 已完成 |
+| `Day04.sql` | 窗口函数：排名、累计、LAG、RANK 对比 | ✅ 已完成 |
+| `Day05.sql` | CTE、CASE WHEN、分档统计 | ✅ 已完成 |
+| `Day06.sql` | 索引与 EXPLAIN：前缀索引、联合索引、filesort | ✅ 已完成 |
 
 ## 仓库结构
 
@@ -32,6 +35,10 @@ learn-sql/
 ├── Day01.sql   # W1–W2：基础查询、聚合与分组
 ├── Day02.sql   # W3：多表 JOIN、反连接、自连接
 ├── Day03.sql   # W4：子查询、EXISTS、UNION
+├── Day04.sql   # W5：窗口函数
+├── Day05.sql   # W6：CTE、CASE WHEN
+├── Day06.sql   # W7：索引与 EXPLAIN
+├── NOTES.md    # SQL 学习手册
 └── README.md
 ```
 
