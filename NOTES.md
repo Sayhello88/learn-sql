@@ -1,7 +1,7 @@
 # SQL 学习手册
 
 > 配套仓库：`learn-sql` ｜ 数据源：sakila（MySQL 8.0）
-> 更新至 W7：窗口函数、CTE、索引与 EXPLAIN。
+> 更新至 W8：窗口函数、CTE、索引与 EXPLAIN、综合实战。
 
 ---
 
@@ -370,6 +370,41 @@ SELECT d, income, income - pre AS growth FROM prev ORDER BY d;
 - 聚合和窗口不能在同一层混着做：先 `GROUP BY` 压成一行一天，再对它 `LAG`。
 - 后面可以引用前面的 CTE，像搭积木。
 - `LAG` 必须配 `ORDER BY`，否则「上一行」没有定义。
+
+---
+
+## 8.6 窗口帧（ROWS BETWEEN）
+
+窗口函数先按 `PARTITION BY` 分组、按 `ORDER BY` 排序，再用**窗口帧**决定当前行计算时看哪几行。
+
+```sql
+AVG(income) OVER (
+    ORDER BY d
+    ROWS BETWEEN 6 PRECEDING AND CURRENT ROW
+)
+```
+
+意思是：**当前行 + 前面的 6 行，最多 7 行一起算平均**。
+
+```text
+当前行是 7/7：取 7/1 ~ 7/7
+当前行是 7/8：取 7/2 ~ 7/8
+```
+
+常见写法：
+
+```sql
+ROWS BETWEEN 2 PRECEDING AND 1 FOLLOWING   -- 前 2 行 + 当前行 + 后 1 行
+ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW  -- 从分组第一行到当前行
+ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING  -- 当前行到最后一行
+```
+
+**要点**
+
+- `ROWS` 数的是**记录行数**，不是日期天数。
+- 如果按天聚合后某些日期没有数据，`6 PRECEDING` 可能跨过不止 6 个日历日。
+- 默认带 `ORDER BY` 的窗口帧通常是 `RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`，所以不加 `ROWS` 时常常是“累计”而不是“最近 N 行”。
+- 前几行不足 7 行时，窗口只会包含已有的行；如果要“满 7 行才计算”，要额外判断行数。
 
 ---
 
