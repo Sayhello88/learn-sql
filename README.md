@@ -16,7 +16,8 @@
 | W5–W6 | 2026.11 | 窗口函数 / CTE / CASE WHEN | ✅ |
 | W7 | 2026.11 | 索引与执行计划（EXPLAIN） | ✅ 已完成 |
 | W8 | 2026.10 | SQL 综合实战：多表 + 窗口 + CTE | ✅ |
-| W9 | 2026.11 | 阶段小测 | 🚧 下一阶段 |
+| W9 | 2026.11 | 阶段小测 | ✅ |
+| W10 | 2026.11 | 期末周降速复习 | 🚧 下一阶段 |
 
 ## 进度
 
@@ -29,6 +30,7 @@
 | `Day05.sql` | CTE、CASE WHEN、分档统计 | ✅ 已完成 |
 | `Day06.sql` | 索引与 EXPLAIN：前缀索引、联合索引、filesort | ✅ 已完成 |
 | `Day07.sql` | W8 综合实战：分类统计、排名、移动平均、分类最高收入 | ✅ 已完成 |
+| `Day08.sql` | W9 阶段小测：筛选、聚合、反连接、窗口、LAG、EXPLAIN | ✅ 已完成 |
 
 ## 仓库结构
 
@@ -41,6 +43,7 @@ learn-sql/
 ├── Day05.sql   # W6：CTE、CASE WHEN
 ├── Day06.sql   # W7：索引与 EXPLAIN
 ├── Day07.sql   # W8：SQL 综合实战
+├── Day08.sql   # W9：阶段小测
 ├── NOTES.md    # SQL 学习手册
 └── README.md
 ```
